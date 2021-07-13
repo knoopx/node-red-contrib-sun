@@ -1,0 +1,72 @@
+<script type="text/javascript">
+RED.nodes.registerType("sun", {
+  category: "function",
+  color: "#FDF0C2",
+  defaults: {
+    name: { value: "" },
+    latitude: {
+      value: "",
+    },
+    longitude: {
+      value: "",
+    },
+    outputOnlyOnChange: {
+      value: false,
+    },
+  },
+  inputs: 1,
+  outputs: 1,
+  icon: "font-awesome/fa-sun-o",
+
+  label() {
+    return this.name || "sun"
+  },
+  oneditprepare() {
+    const propNames = ["latitude", "longitude"]
+    if (propNames.every((name) => !$(`#node-input-${name}`).val().trim())) {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(function (position) {
+          propNames.forEach((name) => {
+            $(`#node-input-${name}`).val(
+              Number(position.coords[name].toFixed(5)),
+            )
+          })
+        })
+      }
+    }
+  },
+  oneditsave() {
+    this.latitude = $("#node-input-latitude").val()
+    this.longitude = $("#node-input-longitude").val()
+    this.outputOnlyOnChange = $("#node-input-outputOnlyOnChange").val()
+  },
+})
+</script>
+
+<script type="text/html" data-template-name="sun">
+    <div class="form-row">
+        <label for="node-input-latitude"><i class="fa fa-globe"></i> Latitude</label>
+        <input type="text" id="node-input-latitude" placeholder="51.025" />
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-longitude"><i class="fa fa-globe"></i> Longitude</label>
+        <input type="text" id="node-input-longitude" placeholder="-1.4" />
+    </div>
+
+    <div class="form-row">
+      <label style="margin-left:105px;display:flex;align-items:end;width:auto" for="node-input-outputOnlyOnChange">
+        <input style="width:auto;margin-right:4px;" type="checkbox" id="node-input-outputOnlyOnChange" />
+        Output Only On Change
+      </label>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name" />
+    </div>
+</script>
+
+<script type="text/html" data-help-name="sun">
+    <p>returns sun state across the day</p>
+</script>
