@@ -68,7 +68,9 @@ module.exports = (RED) => {
         nextAt: nextStateAt,
       })
 
-      this.previousState ||= currentState
+      if (!this.previousState) {
+        this.previousState = currentState
+      }
 
       if (!this.outputOnlyOnChange || this.previousState !== currentState) {
         this.send(msg)
