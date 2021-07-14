@@ -1,4 +1,40 @@
 <script type="text/javascript">
+function hasPosition() {
+  return !["latitude", "longitude"].every(
+    (propName) => !$(`#node-input-${propName}`).val().trim(),
+  )
+}
+
+function setPosition(coords) {
+  ;["latitude", "longitude"].forEach((propName) => {
+    $(`#node-input-${propName}`).val(Number(coords[propName].toFixed(5)))
+  })
+}
+
+function getPosition() {
+  return {
+    latitude: $("#node-input-latitude").val(),
+    longitude: $("#node-input-longitude").val(),
+  }
+}
+
+function fetchEvents() {
+  $.get(
+    "/sun/events",
+    getPosition(),
+    (events) => {
+      const tbody = $("<tbody/>")
+      events.forEach(([name, time]) => {
+        $(
+          `<tr><th>${time}</th><td style="padding-left: 16px">${name}</td></tr>`,
+        ).appendTo(tbody)
+      })
+      $("#preview").replaceWith(tbody)
+    },
+    "json",
+  )
+}
+
 RED.nodes.registerType("sun", {
   category: "function",
   color: "#FDF0C2",
@@ -22,22 +58,19 @@ RED.nodes.registerType("sun", {
     return this.name || "sun"
   },
   oneditprepare() {
-    const propNames = ["latitude", "longitude"]
-    if (propNames.every((name) => !$(`#node-input-${name}`).val().trim())) {
+    if (!hasPosition()) {
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(function (position) {
-          propNames.forEach((name) => {
-            $(`#node-input-${name}`).val(
-              Number(position.coords[name].toFixed(5)),
-            )
-          })
+          setPosition(position.coords)
+          fetchEvents()
         })
       }
+    } else {
+      fetchEvents()
     }
   },
   oneditsave() {
-    this.latitude = $("#node-input-latitude").val()
-    this.longitude = $("#node-input-longitude").val()
+    Object.assign(this, getPosition())
     this.outputOnlyOnChange = $("#node-input-outputOnlyOnChange").val()
   },
 })
@@ -65,6 +98,10 @@ RED.nodes.registerType("sun", {
         <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
         <input type="text" id="node-input-name" placeholder="Name" />
     </div>
+
+    <hr />
+
+    <table id="preview" />
 </script>
 
 <script type="text/html" data-help-name="sun">

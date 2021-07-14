@@ -49,6 +49,8 @@ function computeSunStates(now, latitude, longitude) {
   return { currentState, currentStateAt, nextState, nextStateAt }
 }
 
+// console.log(computeSunStates(moment(), 41.49084, 2.1332))
+
 module.exports = (RED) => {
   class SunNode {
     constructor(config) {
@@ -101,4 +103,14 @@ module.exports = (RED) => {
   }
 
   RED.nodes.registerType("sun", SunNode)
+
+  RED.httpAdmin.get("/sun/events", function (req, res) {
+    const events = computeSunEventTimesForMoment(
+      moment(),
+      req.query.latitude,
+      req.query.longitude,
+    )
+
+    return res.json(events.map(([name, time]) => [name, time.format("HH:hh")]))
+  })
 }
