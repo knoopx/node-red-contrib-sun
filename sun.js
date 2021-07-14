@@ -1,41 +1,52 @@
+const _ = require("lodash")
 const moment = require("moment")
 const suncalc = require("suncalc2")
-const lodash = require("lodash")
 
-function getSuncalEventsByDate(now, latitude, longitude) {
+function getSuncalcEventTimesForMoment(now, latitude, longitude) {
   return suncalc.getTimes(
-    now.clone().hour(12).minute(0).second(0).toDate(),
+    now.clone().hour(12).minute(0).second(0),
     latitude,
     longitude,
   )
 }
 
-function makeSunEvent(now, event, time) {
-  return [event, now.clone().hour(time.getHours()).minutes(time.getMinutes())]
-}
-
-function computeSunEvents(now, latitude, longitude) {
-  const events = getSuncalEventsByDate(now, latitude, longitude)
-
-  return Object.keys(events).reduce(
-    (result, name) => [...result, makeSunEvent(now, name, events[name])],
-    [],
-  )
-}
-
-function computeState(now, latitude, longitude) {
-  const events = computeSunEvents(now, latitude, longitude)
-
-  const nextStates = lodash
-    .chain(events)
-    .filter((x) => x[1] >= now)
+function computeSunEventTimesForMoment(now, latitude, longitude) {
+  return _.chain(getSuncalcEventTimesForMoment(now, latitude, longitude))
+    .toPairs()
+    .map(([event, time]) => [
+      event,
+      now.clone().hour(time.getHours()).minutes(time.getMinutes()),
+    ])
     .sortBy([1])
     .value()
+}
 
-  const [currentState] = nextStates.shift()
-  const [nextState, nextStateAt] = nextStates[0] || []
+function computeSunStates(now, latitude, longitude) {
+  const sunEventTimes = [
+    ...computeSunEventTimesForMoment(
+      now.clone().add(-1, "day"),
+      latitude,
+      longitude,
+    ),
+    ...computeSunEventTimesForMoment(now, latitude, longitude),
+    ...computeSunEventTimesForMoment(
+      now.clone().add(1, "day"),
+      latitude,
+      longitude,
+    ),
+  ]
 
-  return { currentState, nextState, nextStateAt }
+  const [nextState, nextStateAt] = _.find(
+    sunEventTimes,
+    ([, time]) => time >= now,
+  )
+
+  const [currentState, currentStateAt] = _.findLast(
+    sunEventTimes,
+    ([, time]) => time < nextStateAt,
+  )
+
+  return { currentState, currentStateAt, nextState, nextStateAt }
 }
 
 module.exports = (RED) => {
@@ -56,16 +67,16 @@ module.exports = (RED) => {
       const { payload = {} } = msg
       const { latitude = this.latitude, longitude = this.longitude } = payload
 
-      const { currentState, nextState, nextStateAt } = computeState(
-        moment(),
-        latitude,
-        longitude,
-      )
+      const now = moment()
+      const { currentState, currentStateAt, nextState, nextStateAt } =
+        computeSunStates(now, latitude, longitude)
 
       Object.assign(msg, {
         payload: currentState,
+        time: now.toDate(),
+        startedAt: currentStateAt.toDate(),
         next: nextState,
-        nextAt: nextStateAt,
+        nextAt: nextStateAt.toDate(),
       })
 
       if (!this.previousState) {
@@ -79,7 +90,9 @@ module.exports = (RED) => {
 
       if (nextState) {
         this.status(
-          `${currentState}, next: ${nextState} at ${nextStateAt.format("H:h")}`,
+          `${currentState}, next: ${nextState} at ${nextStateAt.format(
+            "HH:hh",
+          )}`,
         )
       } else {
         this.status(currentState)
