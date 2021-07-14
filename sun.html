@@ -20,7 +20,7 @@ function getPosition() {
 
 function fetchEvents() {
   $.get(
-    "/sun/events",
+    "sun/events",
     getPosition(),
     (events) => {
       const tbody = $("<tbody/>")
